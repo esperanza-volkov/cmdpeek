@@ -11,24 +11,24 @@ can copy or print. Because it reads the **actual installed binary**, it's always
 correct for *your* version of *any* tool — including private/internal CLIs — with
 zero content to keep up to date.
 
-```
-$ cmdpeek tar
-```
+![cmdpeek demo — fuzzy-filtering and toggling flags on `grep`, assembling a runnable command live](docs/cmdpeek-demo.gif)
 
 ```
-cmdpeek tar  (from: tar --help)
-28 options · 0 subcommands · 2 selected
-/ extract
+cmdpeek grep  (from: grep --help)
+49 options · 0 subcommands · 3 selected
+/ █
 ──────────────────────────────────────────────
- ◉ -x, --extract         extract files from an archive
- ◉ -f, --file ARCHIVE    use archive file or device ARCHIVE
- ○ -v, --verbose         verbosely list files processed
- ○ -z, --gzip            filter the archive through gzip
+ ○ -E, --extended-regexp
+ ◉ -i, --ignore-case
+ ◉ -n, --line-number
+ ◉ -r, --recursive
 ──────────────────────────────────────────────
-  use archive file or device ARCHIVE
-$ tar --extract --file=backup.tar.gz
+  print line number with output lines
+$ grep --ignore-case --line-number --recursive
 ↑↓ move · tab toggle · ^e edit value · ^y copy · enter print & quit · esc/^c quit
 ```
+
+*(The list shows one flag per line; the description of the highlighted flag is shown just below it. The `$` line is the command cmdpeek assembles from your selections — press `enter` to print it or `^y` to copy.)*
 
 ## Install
 
