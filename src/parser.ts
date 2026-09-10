@@ -8,6 +8,8 @@ export interface CmdOption {
   flags: string[];
   /** Argument placeholder if the option takes a value, e.g. "<file>" or "N". */
   arg: string | null;
+  /** How the value attaches: "space" → `--flag val`; "equals" → `--flag=val`. */
+  argStyle?: 'space' | 'equals';
   /** Human description (may be joined from continuation lines). */
   description: string;
 }
@@ -59,21 +61,34 @@ function splitFlagsAndDesc(rest: string): { flagPart: string; desc: string } {
   return { flagPart, desc };
 }
 
-function extractFlags(flagBlob: string): { flags: string[]; arg: string | null } {
+function extractFlags(flagBlob: string): {
+  flags: string[];
+  arg: string | null;
+  argStyle: 'space' | 'equals';
+} {
   const flags: string[] = [];
   let arg: string | null = null;
+  let argStyle: 'space' | 'equals' = 'space';
   // Tokenise on commas and whitespace but keep <..> and [..] together.
   const tokens = flagBlob.match(/<[^>]+>|\[[^\]]+\]|[^\s,]+/g) || [];
   for (const raw of tokens) {
     const tok = raw.trim();
     if (!tok) continue;
     if (/^[-]{1,2}/.test(tok)) {
-      // may be "--name=VALUE" or "--name" or "-n"
-      const eq = tok.match(/^(-{1,2}[A-Za-z0-9?][A-Za-z0-9?-]*)([=\s].*)?$/);
+      // Forms: "--name", "-n", "--name=VALUE", "--name[=VALUE]", "--name[=WHEN]".
+      const eq = tok.match(
+        /^(-{1,2}[A-Za-z0-9?][A-Za-z0-9?-]*)(\[=[^\]]*\]|=\S*|[=\s].*)?$/,
+      );
       if (eq) {
         flags.push(eq[1]);
         if (eq[2]) {
-          const a = eq[2].replace(/^[=\s]+/, '');
+          const rawArg = eq[2];
+          // "=VAL" or "[=VAL]" → equals-attached; " VAL" → space-attached.
+          if (/^\[?=/.test(rawArg)) argStyle = 'equals';
+          const a = rawArg
+            .replace(/^\[?=?\s*/, '')
+            .replace(/\]$/, '')
+            .trim();
           if (a) arg = a;
         }
       }
@@ -83,7 +98,7 @@ function extractFlags(flagBlob: string): { flags: string[]; arg: string | null }
       arg = tok;
     }
   }
-  return { flags, arg };
+  return { flags, arg, argStyle };
 }
 
 export function parseHelp(text: string): ParsedHelp {
@@ -138,9 +153,9 @@ export function parseHelp(text: string): ParsedHelp {
     if (m) {
       const combined = m[2] + m[3];
       const { flagPart, desc } = splitFlagsAndDesc(combined);
-      const { flags, arg } = extractFlags(flagPart);
+      const { flags, arg, argStyle } = extractFlags(flagPart);
       if (flags.length) {
-        last = { flags, arg, description: desc };
+        last = { flags, arg, argStyle, description: desc };
         options.push(last);
         continue;
       }

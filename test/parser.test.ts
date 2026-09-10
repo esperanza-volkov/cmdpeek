@@ -107,3 +107,34 @@ describe('robustness', () => {
     expect(p.options.filter((o) => o.flags.includes('-a'))).toHaveLength(1);
   });
 });
+
+describe('optional-value & equals-attached flags', () => {
+  it('parses --color[=WHEN] (GNU optional value) as an equals-style option', () => {
+    const text = [
+      'Usage: ls [OPTION]...',
+      '',
+      '  -a, --all      do not ignore entries',
+      '      --color[=WHEN]         color the output WHEN; more info below',
+      '  -l             long listing',
+    ].join('\n');
+    const p = parseHelp(text);
+    const color = p.options.find((o) => o.flags.includes('--color'));
+    expect(color).toBeTruthy();
+    expect(color!.arg).toBe('WHEN');
+    expect(color!.argStyle).toBe('equals');
+  });
+
+  it('parses --name=VALUE as equals-style', () => {
+    const p = parseHelp('Options:\n  --output=FILE   write here\n');
+    const o = p.options.find((x) => x.flags.includes('--output'));
+    expect(o!.arg).toBe('FILE');
+    expect(o!.argStyle).toBe('equals');
+  });
+
+  it('treats "--name VALUE" / "--name <val>" as space-style', () => {
+    const p = parseHelp('Options:\n  -o, --output <file>   write here\n');
+    const o = p.options.find((x) => x.flags.includes('--output'));
+    expect(o!.arg).toBe('<file>');
+    expect(o!.argStyle).toBe('space');
+  });
+});
