@@ -1,0 +1,39 @@
+{
+  "name": "cmdpeek",
+  "version": "0.1.0",
+  "description": "Interactive flag explorer & command builder for any CLI — parsed live from the command's own --help. Local-first, no curated database.",
+  "type": "module",
+  "bin": {
+    "cmdpeek": "dist/cli.js"
+  },
+  "main": "dist/parser.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "help",
+    "flags",
+    "explainshell",
+    "tldr",
+    "command-builder",
+    "argparse",
+    "interactive"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}
