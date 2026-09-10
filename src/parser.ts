@@ -126,7 +126,15 @@ export function parseHelp(text: string): ParsedHelp {
       last = null;
       continue;
     }
-    if (headerish && SECTION_COMMANDS.test(trimmed)) {
+    // Command sections: the anchored known headers, OR any short header line
+    // that ends in a colon and mentions "command(s)" — this catches the many
+    // real-world variants (git "These are common Git commands ...:", npm
+    // "All commands:", apt "Most used commands:", systemctl "Unit Commands:").
+    if (
+      headerish &&
+      (SECTION_COMMANDS.test(trimmed) ||
+        (trimmed.endsWith(':') && /\bcommands?\b/i.test(trimmed) && !OPT_RE.test(line)))
+    ) {
       section = 'commands';
       last = null;
       continue;
@@ -169,7 +177,12 @@ export function parseHelp(text: string): ParsedHelp {
 
     // --- Subcommand rows -------------------------------------------------
     if (section === 'commands') {
-      const cm = line.match(/^\s{1,6}([A-Za-z][A-Za-z0-9:_-]*)\s{2,}(.+)$/);
+      // Two common row shapes:
+      //   "  clone      Clone a repository"   (name, 2+ spaces, description)
+      //   "  install - install packages"      (name, " - ", description; apt/dpkg)
+      const cm =
+        line.match(/^\s{1,6}([A-Za-z][A-Za-z0-9:_-]*)\s{2,}(.+)$/) ||
+        line.match(/^\s{1,6}([A-Za-z][A-Za-z0-9:_-]*)\s+-\s+(.+)$/);
       if (cm) { subcommands.push({ name: cm[1], description: cm[2].trim() }); continue; }
     }
   }

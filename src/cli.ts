@@ -10,7 +10,7 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];
@@ -57,12 +57,18 @@ Usage:
   cmdpeek --version
   cmdpeek --help
 
-Keys (interactive):  type to filter · ↑↓ move · tab toggle · ^e edit value
-                     ^y copy · enter print & quit · esc/^c quit
+Keys (interactive):  type to filter · ↑↓ move · tab toggle · → drill into a
+                     subcommand · ← back · ^e edit value · ^y copy
+                     enter print & quit · esc/^c quit
+
+Subcommands: point cmdpeek at a tool with subcommands (git, pip, apt,
+systemctl, ...) and press → (or tab) on a subcommand to re-parse its own
+--help and build that command; ← returns to the parent.
 
 Examples:
   cmdpeek tar
-  cmdpeek git commit
+  cmdpeek git            # browse subcommands, drill into one, build it
+  cmdpeek git commit     # jump straight to a subcommand
   cmdpeek curl --json | jq '.options[].flags'
 `;
 

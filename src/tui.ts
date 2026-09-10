@@ -4,6 +4,8 @@
 import * as readline from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import type { ParsedHelp, CmdOption } from './parser.js';
+import { parseHelp } from './parser.js';
+import { getHelpSync } from './help.js';
 import {
   buildRows,
   filterRows,
@@ -55,17 +57,79 @@ function copyToClipboard(text: string): string | null {
 
 export function runTui(opts: TuiOptions): Promise<void> {
   return new Promise((resolve) => {
-    const { parsed, base, invocation } = opts;
-    const options: CmdOption[] = parsed.options;
-    const allRows = buildRows(parsed);
-
-    const state: BuildState = { base, selected: new Map(), chosenSub: undefined };
+    // These change as the user drills into / out of subcommands.
+    let parsed: ParsedHelp = opts.parsed;
+    let base: string[] = opts.base;
+    let invocation: string = opts.invocation;
+    let options: CmdOption[] = parsed.options;
+    let allRows = buildRows(parsed);
+    let state: BuildState = { base, selected: new Map(), chosenSub: undefined };
 
     let query = '';
     let cursor = 0; // index into the currently-filtered rows
     let scroll = 0;
     let status = '';
     let promptMode: { key: string; label: string; buf: string } | null = null;
+
+    // Navigation stack: each drilled subcommand pushes the frame it came from,
+    // so `left`/back restores the parent view with its selections intact.
+    interface Frame {
+      parsed: ParsedHelp;
+      base: string[];
+      invocation: string;
+      options: CmdOption[];
+      allRows: Row[];
+      state: BuildState;
+      query: string;
+      cursor: number;
+      scroll: number;
+    }
+    const stack: Frame[] = [];
+
+    /** Re-run help for `<base> <sub>` and swap the view into that subcommand. */
+    function drillInto(subName: string) {
+      const newBase = [...base, subName];
+      const help = getHelpSync(newBase[0], newBase.slice(1));
+      if (!help) {
+        status = `no help for ${newBase.join(' ')}`;
+        return;
+      }
+      const np = parseHelp(help.text);
+      if (np.options.length === 0 && np.subcommands.length === 0) {
+        status = `no flags/subcommands under ${subName}`;
+        return;
+      }
+      stack.push({ parsed, base, invocation, options, allRows, state, query, cursor, scroll });
+      parsed = np;
+      base = newBase;
+      invocation = help.invocation;
+      options = np.options;
+      allRows = buildRows(np);
+      state = { base, selected: new Map(), chosenSub: undefined };
+      query = '';
+      cursor = 0;
+      scroll = 0;
+      status = `▸ ${subName}`;
+    }
+
+    /** Pop back to the parent view (restoring its selections). */
+    function goBack() {
+      const f = stack.pop();
+      if (!f) {
+        status = 'at top level';
+        return;
+      }
+      parsed = f.parsed;
+      base = f.base;
+      invocation = f.invocation;
+      options = f.options;
+      allRows = f.allRows;
+      state = f.state;
+      query = f.query;
+      cursor = f.cursor;
+      scroll = f.scroll;
+      status = 'back';
+    }
 
     const out = process.stdout;
     const rows = () => filterRows(allRows, query);
@@ -138,10 +202,10 @@ export function runTui(opts: TuiOptions): Promise<void> {
           yellow(`value for ${promptMode.label}: `) + promptMode.buf + '\u2588  ' + dim('(enter=ok, esc=cancel)'),
         );
       } else {
-        lines.push(
-          dim('↑↓ move · tab toggle · ^e edit value · ^y copy · enter print & quit · esc/^c quit') +
-            (status ? '   ' + yellow(status) : ''),
-        );
+        const hint = stack.length
+          ? '↑↓ move · tab toggle/drill · ← back · ^e value · ^y copy · enter print · esc quit'
+          : '↑↓ move · tab toggle · → drill subcommand · ^e value · ^y copy · enter print · esc quit';
+        lines.push(dim(hint) + (status ? '   ' + yellow(status) : ''));
       }
 
       // Paint: clear screen, home, write.
@@ -158,10 +222,8 @@ export function runTui(opts: TuiOptions): Promise<void> {
       const row = filtered[cursor];
       if (!row) return;
       if (row.kind === 'subcommand') {
-        // Drill into the subcommand: append to base and re-run help would be ideal;
-        // for v0.1 we just add it to the command line as the chosen subcommand.
-        state.chosenSub = state.chosenSub === row.sub.name ? undefined : row.sub.name;
-        status = state.chosenSub ? `subcommand: ${row.sub.name}` : 'subcommand cleared';
+        // Re-run `<base> <sub> --help`, parse it, and drill into that view.
+        drillInto(row.sub.name);
         return;
       }
       const key = optionKey(row.option);
@@ -265,6 +327,19 @@ export function runTui(opts: TuiOptions): Promise<void> {
           status = '';
           toggleActive();
           break;
+        case 'right': {
+          // Drill into a subcommand row (leaves option rows unchanged).
+          const row = filtered[cursor];
+          if (row && row.kind === 'subcommand') {
+            status = '';
+            drillInto(row.sub.name);
+          }
+          break;
+        }
+        case 'left':
+          status = '';
+          goBack();
+          break;
         case 'return':
           finishPrint();
           return;
@@ -274,6 +349,7 @@ export function runTui(opts: TuiOptions): Promise<void> {
           break;
         case 'escape':
           if (query) { query = ''; cursor = 0; }
+          else if (stack.length) { status = ''; goBack(); }
           else { cleanup(); resolve(); return; }
           break;
         default:

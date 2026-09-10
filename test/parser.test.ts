@@ -80,6 +80,54 @@ describe('subcommand list (cobra Available Commands)', () => {
   it('still parses flags after commands', () => expect(find(p.options, '-h')).toBeTruthy());
 });
 
+describe('real-world command-section header variants', () => {
+  it('git-style prose header + indented rows', () => {
+    const help = [
+      'These are common Git commands used in various situations:',
+      '',
+      'start a working area (see also: git help tutorial)',
+      '   clone     Clone a repository into a new directory',
+      '   init      Create an empty Git repository',
+      '',
+      'work on the current change',
+      '   add       Add file contents to the index',
+    ].join('\n');
+    const p = parseHelp(help);
+    expect(p.subcommands.map((s) => s.name)).toEqual(['clone', 'init', 'add']);
+    expect(p.subcommands[0].description).toBe('Clone a repository into a new directory');
+  });
+
+  it('apt-style "name - description" rows', () => {
+    const help = [
+      'Most used commands:',
+      '  list - list packages based on package names',
+      '  install - install packages',
+      '  remove - remove packages',
+    ].join('\n');
+    const p = parseHelp(help);
+    expect(p.subcommands.map((s) => s.name)).toEqual(['list', 'install', 'remove']);
+    expect(p.subcommands[1].description).toBe('install packages');
+  });
+
+  it('"All commands:" header is recognized as a command section', () => {
+    const help = ['All commands:', '  add        Add a thing', '  ship       Ship it'].join('\n');
+    const p = parseHelp(help);
+    expect(p.subcommands.map((s) => s.name)).toEqual(['add', 'ship']);
+  });
+
+  it('does NOT invent subcommands for a flags-only help', () => {
+    const help = [
+      'Usage: tool [OPTION]...',
+      'Options:',
+      '  -a, --all      do everything',
+      '  -v, --verbose  be loud',
+    ].join('\n');
+    const p = parseHelp(help);
+    expect(p.subcommands).toEqual([]);
+    expect(find(p.options, '-a')).toBeTruthy();
+  });
+});
+
 describe('multi-line description continuation', () => {
   const help = [
     'Options:',

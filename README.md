@@ -62,11 +62,28 @@ cmdpeek <command> --raw             # print the raw help text cmdpeek parsed
 | --- | --- |
 | type | fuzzy‑filter flags & subcommands |
 | ↑ / ↓ | move the cursor |
-| `tab` | toggle the current flag / pick a subcommand |
+| `tab` | toggle the current flag, or drill into the current subcommand |
+| → | drill into the current subcommand |
+| ← | go back up to the parent command |
 | `^e` | edit the value of a flag that takes an argument |
 | `^y` | copy the assembled command to the clipboard |
 | `enter` | print the assembled command to stdout and quit |
-| `esc` / `^c` | clear the filter, or quit |
+| `esc` / `^c` | clear the filter, go back a level, or quit |
+
+### Subcommands (drill‑down)
+
+Many tools are really trees of subcommands — `git commit`, `pip install`,
+`apt search`, `systemctl status`. Point cmdpeek at the top‑level command and it
+lists the subcommands it finds in the help text. Press → (or `tab`) on one and
+cmdpeek **re‑runs that subcommand's own `--help`**, parses it, and drops you into
+a fresh flag builder for it; ← returns to the parent. Because each level is read
+live from the real binary, the flags are always correct for your installed
+version.
+
+```bash
+cmdpeek git        # → pick "commit" → build `git commit --amend --no-edit ...`
+cmdpeek pip        # → pick "install" → build `pip install --upgrade ...`
+```
 
 `enter` prints the command to stdout, so you can drop cmdpeek straight into a
 shell substitution:
