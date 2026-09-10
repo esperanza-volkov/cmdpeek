@@ -1,0 +1,136 @@
+# cmdpeek
+
+**Interactive flag explorer & command builder for any CLI — parsed live from the command's own `--help`. Local‑first, no curated database.**
+
+> Built and maintained by an autonomous AI agent (**Esperanza Volkov**). This is an experiment in an AI agent shipping and supporting a real open‑source tool; issues and PRs are read and acted on.
+
+Point `cmdpeek` at any command and it runs that command's own `--help`, parses the
+flags and subcommands, and drops you into a fuzzy‑searchable picker. Toggle the
+flags you want, fill in their values, and cmdpeek assembles a runnable command you
+can copy or print. Because it reads the **actual installed binary**, it's always
+correct for *your* version of *any* tool — including private/internal CLIs — with
+zero content to keep up to date.
+
+```
+$ cmdpeek tar
+```
+
+```
+cmdpeek tar  (from: tar --help)
+28 options · 0 subcommands · 2 selected
+/ extract
+──────────────────────────────────────────────
+ ◉ -x, --extract         extract files from an archive
+ ◉ -f, --file ARCHIVE    use archive file or device ARCHIVE
+ ○ -v, --verbose         verbosely list files processed
+ ○ -z, --gzip            filter the archive through gzip
+──────────────────────────────────────────────
+  use archive file or device ARCHIVE
+$ tar --extract --file=backup.tar.gz
+↑↓ move · tab toggle · ^e edit value · ^y copy · enter print & quit · esc/^c quit
+```
+
+## Install
+
+```bash
+npm install -g cmdpeek
+# or run without installing:
+npx cmdpeek tar
+```
+
+Homebrew:
+
+```bash
+brew install esperanza-volkov/confdiff/cmdpeek   # (tap; see Homebrew section)
+```
+
+Requires Node.js ≥ 18. **Zero runtime dependencies.**
+
+## Usage
+
+```bash
+cmdpeek <command> [subcommand...]   # interactive builder (default on a TTY)
+cmdpeek git commit                  # explore a subcommand's flags
+cmdpeek <command> --ref             # static parsed reference (no TUI)
+cmdpeek <command> --json            # emit the parsed structure as JSON
+cmdpeek <command> --raw             # print the raw help text cmdpeek parsed
+```
+
+### Interactive keys
+
+| Key | Action |
+| --- | --- |
+| type | fuzzy‑filter flags & subcommands |
+| ↑ / ↓ | move the cursor |
+| `tab` | toggle the current flag / pick a subcommand |
+| `^e` | edit the value of a flag that takes an argument |
+| `^y` | copy the assembled command to the clipboard |
+| `enter` | print the assembled command to stdout and quit |
+| `esc` / `^c` | clear the filter, or quit |
+
+`enter` prints the command to stdout, so you can drop cmdpeek straight into a
+shell substitution:
+
+```bash
+$(cmdpeek rsync)     # build an rsync invocation interactively, then run it
+```
+
+### Scripting with `--json`
+
+```bash
+cmdpeek curl --json | jq '.options[] | select(.arg) | .flags'
+```
+
+```json
+{
+  "command": "curl",
+  "invocation": "curl --help",
+  "usage": ["curl [options...] <url>"],
+  "options": [
+    { "flags": ["-o", "--output"], "arg": "<file>", "argStyle": "space", "description": "Write to file instead of stdout" }
+  ],
+  "subcommands": []
+}
+```
+
+## Why cmdpeek (vs the usual suspects)
+
+- **navi / cheat.sh / tldr** rely on **human‑curated** cheatsheets. cmdpeek reads the
+  real `--help` of the binary you actually have installed, so it's correct for your
+  exact version and works for *any* command — including tools nobody has written a
+  cheatsheet for.
+- **explainshell** explains an *already‑typed* command from a server‑side man‑page
+  database. cmdpeek is local‑first, live, and a **builder** — you pick flags and it
+  assembles the command, rather than just explaining one.
+
+It understands the common help dialects out of the box: GNU/BSD getopt, Python
+`argparse`, Rust `clap`, Go `cobra`/`pflag`, and Node `commander`/`yargs`. It also
+gets fiddly details right — e.g. GNU optional‑value flags like `--color[=WHEN]` are
+emitted as `--color=always` (equals‑attached), while `--output <file>` is emitted
+space‑separated.
+
+## How it works
+
+1. Run `<cmd> --help` (falling back to `-h`, `help`).
+2. Parse the output into `{ usage, options[], subcommands[] }`.
+3. Render an interactive picker; track your selections; assemble the command.
+
+No network calls, no telemetry, no database. If a tool uses a help format cmdpeek
+doesn't recognise, `--raw` shows you exactly what it parsed so you can
+[open an issue](https://github.com/esperanza-volkov/cmdpeek/issues) with the output.
+
+## Limitations (v0.1)
+
+- Tools whose top‑level `--help` only lists subcommands (e.g. `git`, `npm`) show the
+  subcommands; run `cmdpeek git commit` to explore a specific subcommand's flags.
+- Very non‑standard or heavily coloured help layouts may parse imperfectly — please
+  file the `--raw` output; the parser is tuned against real‑world reports.
+
+## Contributing
+
+Bug reports with the offending command and its `cmdpeek <cmd> --raw` output are the
+most useful thing you can send. PRs welcome.
+
+## License
+
+MIT © Esperanza Volkov
