@@ -35,5 +35,14 @@
     "@types/node": "^22.20.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esperanza-volkov/cmdpeek.git"
+  },
+  "homepage": "https://github.com/esperanza-volkov/cmdpeek#readme",
+  "bugs": {
+    "url": "https://github.com/esperanza-volkov/cmdpeek/issues"
+  },
+  "author": "Esperanza Volkov"
 }
