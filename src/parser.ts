@@ -101,6 +101,44 @@ function extractFlags(flagBlob: string): {
   return { flags, arg, argStyle };
 }
 
+// Split a line into balanced top-level bracket groups: "[-a] [-b <v>]" → ["-a","-b <v>"].
+function bracketGroups(line: string): string[] {
+  const groups: string[] = [];
+  let depth = 0;
+  let buf = '';
+  for (const ch of line) {
+    if (ch === '[') { if (depth === 0) { buf = ''; } else { buf += ch; } depth++; continue; }
+    if (ch === ']') { depth--; if (depth === 0) { groups.push(buf); } else if (depth > 0) { buf += ch; } continue; }
+    if (depth >= 1) buf += ch;
+  }
+  return groups;
+}
+
+// A synopsis-brackets line (npm per-command help): the whole line is bracket
+// groups and at least one group holds a flag, e.g.
+//   [-S|--save|--no-save] [--cpu <cpu>] [-w|--workspace <name> [-w ...]]
+function parseSynopsisBrackets(line: string): CmdOption[] {
+  const out: CmdOption[] = [];
+  const groups = bracketGroups(line);
+  for (const g of groups) {
+    // Take the leading flag portion; a nested "[-w ...]" repeat lives inside g
+    // but bracketGroups already stripped one level, so g may still contain '['.
+    const head = g.split('[')[0].trim();
+    if (!/^-/.test(head)) continue;
+    // Pull an arg placeholder "<...>" (may contain pipes: <a|b|c>).
+    const argM = head.match(/<[^>]+>/);
+    const arg = argM ? argM[0] : null;
+    const flagsPart = head.replace(/<[^>]+>/g, ' ');
+    for (const tok of flagsPart.split(/[|\s]+/)) {
+      const t = tok.trim();
+      if (/^-{1,2}[A-Za-z0-9]/.test(t)) {
+        out.push({ flags: [t], arg, argStyle: 'space', description: '' });
+      }
+    }
+  }
+  return out;
+}
+
 export function parseHelp(text: string): ParsedHelp {
   const lines = text.split(/\r?\n/);
   const options: CmdOption[] = [];
@@ -155,6 +193,15 @@ export function parseHelp(text: string): ParsedHelp {
       }
     }
 
+    // --- Synopsis-brackets options (npm per-command help) ----------------
+    // Inside an options section, a line that is entirely bracket groups and
+    // carries a flag: "[-S|--save] [--cpu <cpu>]". Guarded so descriptive
+    // option rows (handled below) and prose never reach here.
+    if (section === 'options' && /^\s*\[/.test(line) && /\[\s*-/.test(line)) {
+      const syn = parseSynopsisBrackets(line);
+      if (syn.length) { for (const o of syn) options.push(o); last = null; continue; }
+    }
+
     // --- Option lines ----------------------------------------------------
     // Inside a detected options section, also accept column-0 flags (Python).
     const m = line.match(OPT_RE) || (section === 'options' ? line.match(OPT_RE0) : null);
@@ -184,6 +231,21 @@ export function parseHelp(text: string): ParsedHelp {
         line.match(/^\s{1,6}([A-Za-z][A-Za-z0-9:_-]*)\s{2,}(.+)$/) ||
         line.match(/^\s{1,6}([A-Za-z][A-Za-z0-9:_-]*)\s+-\s+(.+)$/);
       if (cm) { subcommands.push({ name: cm[1], description: cm[2].trim() }); continue; }
+
+      // Comma-flowing bare-command list (npm "All commands:"): an indented row
+      // that is purely comma-separated identifiers with no descriptions, often
+      // wrapped across several lines and ending in a trailing comma. Strictly
+      // "ident(, ident)*,?" so prose (which has space-separated words) can't match.
+      if (
+        /^\s{2,}/.test(line) &&
+        /^[A-Za-z][A-Za-z0-9:_-]*(\s*,\s*[A-Za-z][A-Za-z0-9:_-]*)*,?$/.test(trimmed)
+      ) {
+        for (const name of trimmed.split(',')) {
+          const n = name.trim();
+          if (n) subcommands.push({ name: n, description: '' });
+        }
+        continue;
+      }
     }
   }
 

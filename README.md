@@ -121,7 +121,10 @@ cmdpeek curl --json | jq '.options[] | select(.arg) | .flags'
   assembles the command, rather than just explaining one.
 
 It understands the common help dialects out of the box: GNU/BSD getopt, Python
-`argparse`, Rust `clap`, Go `cobra`/`pflag`, and Node `commander`/`yargs`. It also
+`argparse`, Rust `clap`, Go `cobra`/`pflag`, Node `commander`/`yargs`, and npm's own
+help style — both its comma‑flowing `All commands:` list (67 subcommands) and its
+bracketed `[-S|--save] [--cpu <cpu>]` per‑command synopsis, so `cmdpeek npm install`
+builds a real `npm install --save-dev -g` line. It also
 gets fiddly details right — e.g. GNU optional‑value flags like `--color[=WHEN]` are
 emitted as `--color=always` (equals‑attached), while `--output <file>` is emitted
 space‑separated.

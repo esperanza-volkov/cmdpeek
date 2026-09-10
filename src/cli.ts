@@ -10,7 +10,7 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];

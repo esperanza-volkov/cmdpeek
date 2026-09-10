@@ -115,6 +115,56 @@ describe('real-world command-section header variants', () => {
     expect(p.subcommands.map((s) => s.name)).toEqual(['add', 'ship']);
   });
 
+  it('npm-style comma-flowing bare command list (wrapped, trailing commas)', () => {
+    const help = [
+      'npm <command>',
+      '',
+      'All commands:',
+      '',
+      '    access, adduser, audit, bugs, cache, ci, completion,',
+      '    config, dedupe, deprecate, diff,',
+      '    view, whoami',
+      '',
+      'Specify configs in the ini-formatted file:',
+      '    /home/user/.npmrc',
+    ].join('\n');
+    const p = parseHelp(help);
+    const names = p.subcommands.map((s) => s.name);
+    expect(names).toContain('access');
+    expect(names).toContain('ci');
+    expect(names).toContain('whoami');
+    expect(names).toContain('dedupe');
+    // prose config line must NOT be swallowed as a command
+    expect(names).not.toContain('Specify');
+    expect(names.length).toBe(13);
+  });
+
+  it('npm-style synopsis-brackets options (pipe-aliased, <value>, nested)', () => {
+    const help = [
+      'Install a package',
+      '',
+      'Usage:',
+      'npm install [<package-spec> ...]',
+      '',
+      'Options:',
+      '[-S|--save|--no-save] [-g|--global]',
+      '[--install-strategy <hoisted|nested|shallow|linked>]',
+      '[-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]',
+    ].join('\n');
+    const p = parseHelp(help);
+    const flagset = p.options.map((o) => o.flags[0]);
+    expect(flagset).toContain('--save');
+    expect(flagset).toContain('--no-save');
+    expect(flagset).toContain('-g');
+    expect(flagset).toContain('--global');
+    const strat = p.options.find((o) => o.flags[0] === '--install-strategy');
+    expect(strat?.arg).toBe('<hoisted|nested|shallow|linked>');
+    const ws = p.options.find((o) => o.flags[0] === '--workspace');
+    expect(ws?.arg).toBe('<workspace-name>');
+    // usage line must not have leaked in as an option
+    expect(flagset).not.toContain('<package-spec>');
+  });
+
   it('does NOT invent subcommands for a flags-only help', () => {
     const help = [
       'Usage: tool [OPTION]...',
