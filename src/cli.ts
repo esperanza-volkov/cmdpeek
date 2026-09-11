@@ -2,6 +2,7 @@
 import { getHelp } from './help.js';
 import { parseHelp, type ParsedHelp } from './parser.js';
 import { runTui } from './tui.js';
+import { shellWidget } from './shell.js';
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code: string, s: string) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -10,7 +11,7 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];
@@ -54,8 +55,13 @@ Usage:
   cmdpeek <command> --ref             Print a static parsed reference instead
   cmdpeek <command> --json            Emit the parsed structure as JSON
   cmdpeek <command> --raw             Print the raw help text cmdpeek parsed
+  cmdpeek --shell <bash|zsh|fish>     Print a Ctrl-G shell widget to source
   cmdpeek --version
   cmdpeek --help
+
+Shell widget:  add  eval "$(cmdpeek --shell zsh)"  to your rc file, then type a
+               command name and press Ctrl-G to build its flags interactively —
+               the assembled command lands right back on your prompt.
 
 Keys (interactive):  type to filter · ↑↓ move · tab toggle · → drill into a
                      subcommand · ← back · ^e edit value · ^y copy
@@ -82,10 +88,25 @@ async function main() {
     process.stdout.write(VERSION + '\n');
     return;
   }
+  // `cmdpeek --shell <bash|zsh|fish>` prints a shell keybinding widget.
+  if (argv[0] === '--shell') {
+    const shell = argv[1];
+    const snippet = shellWidget(shell);
+    if (!snippet) {
+      process.stderr.write('Usage: cmdpeek --shell <bash|zsh|fish>\n');
+      process.exit(1);
+    }
+    process.stdout.write(snippet);
+    return;
+  }
+
   const jsonMode = argv.includes('--json');
   const rawMode = argv.includes('--raw');
   const refMode = argv.includes('--ref') || argv.includes('--reference');
-  const FLAGS = new Set(['--json', '--raw', '--ref', '--reference']);
+  // Capture/shell-widget mode: draw UI on /dev/tty, emit only the built command
+  // to stdout so a shell widget can capture it.
+  const captureMode = argv.includes('--print-command');
+  const FLAGS = new Set(['--json', '--raw', '--ref', '--reference', '--print-command']);
   const rest = argv.filter((a) => !FLAGS.has(a));
   const cmd = rest[0];
   const subArgs = rest.slice(1);
@@ -109,12 +130,16 @@ async function main() {
     return;
   }
 
+  const havePickable = parsed.options.length > 0 || parsed.subcommands.length > 0;
+
+  // Capture (shell-widget) mode: UI on /dev/tty, built command to stdout.
+  if (captureMode && !refMode && havePickable) {
+    await runTui({ base: [cmd, ...subArgs], invocation: help.invocation, parsed, capture: true });
+    return;
+  }
+
   // Interactive by default when we're on a TTY and there's something to pick.
-  const interactive =
-    !refMode &&
-    process.stdin.isTTY &&
-    process.stdout.isTTY &&
-    (parsed.options.length > 0 || parsed.subcommands.length > 0);
+  const interactive = !refMode && process.stdin.isTTY && process.stdout.isTTY && havePickable;
   if (interactive) {
     await runTui({ base: [cmd, ...subArgs], invocation: help.invocation, parsed });
     return;

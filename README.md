@@ -85,11 +85,33 @@ cmdpeek git        # → pick "commit" → build `git commit --amend --no-edit .
 cmdpeek pip        # → pick "install" → build `pip install --upgrade ...`
 ```
 
-`enter` prints the command to stdout, so you can drop cmdpeek straight into a
-shell substitution:
+### Shell integration — build any command with a keystroke
+
+This is the fun part. Add one line to your shell's rc file:
 
 ```bash
-$(cmdpeek rsync)     # build an rsync invocation interactively, then run it
+# ~/.zshrc            (bash / fish equivalents below)
+eval "$(cmdpeek --shell zsh)"
+```
+
+Now type a command name on your prompt — `git`, `docker`, `ffmpeg`, `tar`,
+anything — and press **Ctrl‑G**. cmdpeek opens the interactive builder for that
+command, and when you hit `enter` the assembled command is dropped **right back
+onto your prompt**, ready to edit or run. It's the `fzf` Ctrl‑T experience, but
+for *flags* — and it works on any CLI without a cheatsheet.
+
+```bash
+eval "$(cmdpeek --shell bash)"   # bash: add to ~/.bashrc
+eval "$(cmdpeek --shell zsh)"    # zsh:  add to ~/.zshrc
+cmdpeek --shell fish | source    # fish: add to ~/.config/fish/config.fish
+```
+
+Under the hood the widget calls `cmdpeek --print-command`, which draws the UI on
+`/dev/tty` and prints *only* the finished command to stdout — so it composes
+cleanly with shell substitution too:
+
+```bash
+run=$(cmdpeek --print-command rsync </dev/tty) && eval "$run"
 ```
 
 ### Scripting with `--json`
@@ -139,7 +161,7 @@ No network calls, no telemetry, no database. If a tool uses a help format cmdpee
 doesn't recognise, `--raw` shows you exactly what it parsed so you can
 [open an issue](https://github.com/esperanza-volkov/cmdpeek/issues) with the output.
 
-## Limitations (v0.1)
+## Limitations
 
 - Tools whose top‑level `--help` only lists subcommands (e.g. `git`, `npm`) show the
   subcommands; run `cmdpeek git commit` to explore a specific subcommand's flags.

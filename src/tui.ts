@@ -2,6 +2,8 @@
 // Thin renderer over the pure logic in builder.ts.
 
 import * as readline from 'node:readline';
+import * as tty from 'node:tty';
+import * as fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import type { ParsedHelp, CmdOption } from './parser.js';
 import { parseHelp } from './parser.js';
@@ -32,6 +34,13 @@ interface TuiOptions {
   base: string[];
   invocation: string;
   parsed: ParsedHelp;
+  /**
+   * "Capture" (shell-widget) mode: draw the UI to the controlling terminal
+   * (/dev/tty) and read keys from it, while the final assembled command is
+   * written to real stdout so a shell widget can capture it via
+   * `cmd=$(cmdpeek --print-command ...)`.
+   */
+  capture?: boolean;
 }
 
 /** Try to copy text to the system clipboard. Returns the tool used, or null. */
@@ -131,7 +140,24 @@ export function runTui(opts: TuiOptions): Promise<void> {
       status = 'back';
     }
 
-    const out = process.stdout;
+    // I/O streams. In normal mode the UI and the final command share stdout.
+    // In capture (shell-widget) mode the UI is drawn to /dev/tty and only the
+    // assembled command goes to real stdout.
+    const capture = !!opts.capture;
+    let inFd = -1;
+    let outFd = -1;
+    let keyIn: NodeJS.ReadStream;
+    let out: tty.WriteStream;
+    if (capture) {
+      inFd = fs.openSync('/dev/tty', 'r');
+      outFd = fs.openSync('/dev/tty', 'w');
+      keyIn = new tty.ReadStream(inFd) as unknown as NodeJS.ReadStream;
+      out = new tty.WriteStream(outFd);
+    } else {
+      keyIn = process.stdin;
+      out = process.stdout as tty.WriteStream;
+    }
+    const emit = (s: string) => process.stdout.write(s);
     const rows = () => filterRows(allRows, query);
 
     function render() {
@@ -250,16 +276,34 @@ export function runTui(opts: TuiOptions): Promise<void> {
     }
 
     function cleanup() {
-      if (process.stdin.isTTY) process.stdin.setRawMode(false);
-      process.stdin.pause();
-      process.stdin.removeListener('keypress', onKey);
+      if (keyIn.isTTY) keyIn.setRawMode(false);
+      keyIn.pause();
+      keyIn.removeListener('keypress', onKey);
       out.write(ESC + '2J' + ESC + 'H');
+      out.write(ESC + '?25h'); // restore cursor
+      if (capture) {
+        try {
+          (keyIn as unknown as tty.ReadStream).destroy();
+        } catch {
+          /* ignore */
+        }
+        try {
+          fs.closeSync(inFd);
+        } catch {
+          /* ignore */
+        }
+        try {
+          out.end();
+        } catch {
+          /* ignore */
+        }
+      }
     }
 
     function finishPrint() {
       cleanup();
       const cmd = assembleCommand(state, options);
-      out.write(cmd + '\n');
+      emit(cmd + '\n');
       resolve();
     }
 
@@ -362,10 +406,10 @@ export function runTui(opts: TuiOptions): Promise<void> {
       render();
     }
 
-    readline.emitKeypressEvents(process.stdin);
-    if (process.stdin.isTTY) process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.on('keypress', onKey);
+    readline.emitKeypressEvents(keyIn);
+    if (keyIn.isTTY) keyIn.setRawMode(true);
+    keyIn.resume();
+    keyIn.on('keypress', onKey);
     out.write(ESC + '?25l'); // hide cursor
     render();
 
