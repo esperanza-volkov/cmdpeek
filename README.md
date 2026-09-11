@@ -54,7 +54,22 @@ cmdpeek git commit                  # explore a subcommand's flags
 cmdpeek <command> --ref             # static parsed reference (no TUI)
 cmdpeek <command> --json            # emit the parsed structure as JSON
 cmdpeek <command> --raw             # print the raw help text cmdpeek parsed
+cmdpeek <command> --man             # build from the man page instead of --help
 ```
+
+### Man‑page fallback (classic Unix tools)
+
+Some venerable tools have a nearly useless `--help` (a one‑line usage) but a rich
+man page — `find`, `xargs`, `ssh`, `tar`, `rsync`, `sort`. cmdpeek handles these
+two ways:
+
+- **Automatic:** if a command's `--help`/`-h`/`help` produce nothing usable,
+  cmdpeek falls back to parsing `man <command>` — so you still get a full,
+  interactive flag builder.
+- **On demand:** pass `--man` to always build from the man page, e.g.
+  `cmdpeek xargs --man`. cmdpeek strips the roff bold/underline formatting and
+  rejoins hyphenated line wraps, then feeds the `OPTIONS` section through the same
+  parser, so `-a, --arg-file file` and `--color[=WHEN]` come out correctly.
 
 ### Interactive keys
 

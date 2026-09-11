@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { getHelp } from './help.js';
+import { getHelp, getMan } from './help.js';
 import { parseHelp, type ParsedHelp } from './parser.js';
 import { runTui } from './tui.js';
 import { shellWidget } from './shell.js';
@@ -11,7 +11,7 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];
@@ -55,6 +55,7 @@ Usage:
   cmdpeek <command> --ref             Print a static parsed reference instead
   cmdpeek <command> --json            Emit the parsed structure as JSON
   cmdpeek <command> --raw             Print the raw help text cmdpeek parsed
+  cmdpeek <command> --man             Build from the command's man page instead of --help
   cmdpeek --shell <bash|zsh|fish>     Print a Ctrl-G shell widget to source
   cmdpeek --version
   cmdpeek --help
@@ -106,14 +107,22 @@ async function main() {
   // Capture/shell-widget mode: draw UI on /dev/tty, emit only the built command
   // to stdout so a shell widget can capture it.
   const captureMode = argv.includes('--print-command');
-  const FLAGS = new Set(['--json', '--raw', '--ref', '--reference', '--print-command']);
+  // Force the man-page source (otherwise man is only a fallback for --help).
+  const manMode = argv.includes('--man');
+  const FLAGS = new Set(['--json', '--raw', '--ref', '--reference', '--print-command', '--man']);
   const rest = argv.filter((a) => !FLAGS.has(a));
   const cmd = rest[0];
   const subArgs = rest.slice(1);
 
   let help;
   try {
-    help = await getHelp(cmd, subArgs);
+    if (manMode) {
+      const m = subArgs.length === 0 ? await getMan(cmd) : null;
+      if (!m) throw new Error(`cmdpeek: no usable man page for "${cmd}".`);
+      help = m;
+    } else {
+      help = await getHelp(cmd, subArgs);
+    }
   } catch (e: any) {
     process.stderr.write((e?.message || String(e)) + '\n');
     process.exit(1);
