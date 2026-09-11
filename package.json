@@ -1,6 +1,6 @@
 {
   "name": "cmdpeek",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Interactive flag explorer & command builder for any CLI — parsed live from the command's own --help. Local-first, no curated database.",
   "type": "module",
   "bin": {
@@ -25,7 +25,17 @@
     "tldr",
     "command-builder",
     "argparse",
-    "interactive"
+    "interactive",
+    "tui",
+    "terminal",
+    "shell",
+    "bash",
+    "zsh",
+    "fish",
+    "fzf",
+    "cheatsheet",
+    "man",
+    "autocomplete"
   ],
   "license": "MIT",
   "engines": {
