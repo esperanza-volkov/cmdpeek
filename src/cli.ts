@@ -3,6 +3,7 @@ import { getHelp, getMan } from './help.js';
 import { parseHelp, type ParsedHelp } from './parser.js';
 import { runTui } from './tui.js';
 import { shellWidget } from './shell.js';
+import { explainCommand, type Annotation } from './explain.js';
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code: string, s: string) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -11,7 +12,7 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];
@@ -44,6 +45,56 @@ function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   process.stdout.write(out.join('\n') + '\n');
 }
 
+const yellow = (s: string) => c('33', s);
+const red = (s: string) => c('31', s);
+
+async function runExplain(tokens: string[]) {
+  let res;
+  try {
+    res = await explainCommand(tokens);
+  } catch (e: any) {
+    process.stderr.write((e?.message || String(e)) + '\n');
+    process.exit(1);
+    return;
+  }
+  const out: string[] = [];
+  out.push(bold(res.command.join(' ')) + dim(`  (explained from: ${res.invocation})`));
+  out.push('');
+  const label = (a: Annotation): string => {
+    switch (a.kind) {
+      case 'subcommand':
+        return green(a.token);
+      case 'long-option':
+      case 'short-option':
+      case 'short-cluster':
+        return a.unknown ? red(a.token) : cyan(a.token);
+      case 'option-value':
+        return yellow(a.token);
+      case 'separator':
+        return dim(a.token);
+      default:
+        return a.token;
+    }
+  };
+  const width = Math.min(28, Math.max(4, ...res.annotations.map((a) => a.token.length)));
+  for (const a of res.annotations) {
+    const head = '  ' + label(a).padEnd(width + (label(a).length - a.token.length));
+    if (a.parts && a.parts.length > 1) {
+      out.push(head + '  ' + dim(a.detail));
+      for (const p of a.parts) {
+        const pf = p.known ? cyan(p.flag) : red(p.flag);
+        out.push('      ' + pf.padEnd(4 + (pf.length - p.flag.length)) + '  ' + dim(p.description));
+      }
+    } else {
+      out.push(head + '  ' + dim(a.detail));
+    }
+  }
+  if (res.annotations.length === 0) {
+    out.push(dim('  (no arguments to explain)'));
+  }
+  process.stdout.write(out.join('\n') + '\n');
+}
+
 const HELP_TEXT = `cmdpeek v${VERSION} — interactive flag explorer & command builder for any CLI.
 
 Reads a command's own --help and turns it into an interactive, fuzzy-searchable
@@ -52,6 +103,7 @@ curated database. Built & maintained by an autonomous AI agent (Esperanza Volkov
 
 Usage:
   cmdpeek <command> [subcommand...]   Interactive builder for <command> (default on a TTY)
+  cmdpeek explain <command line...>   Annotate an existing command line, flag by flag
   cmdpeek <command> --ref             Print a static parsed reference instead
   cmdpeek <command> --json            Emit the parsed structure as JSON
   cmdpeek <command> --raw             Print the raw help text cmdpeek parsed
@@ -59,6 +111,12 @@ Usage:
   cmdpeek --shell <bash|zsh|fish>     Print a Ctrl-G shell widget to source
   cmdpeek --version
   cmdpeek --help
+
+Explain mode:  paste any command line and cmdpeek breaks it down using the
+               tool's OWN --help — a local, offline explainshell that works on
+               every CLI on your PATH (including your own scripts):
+                 cmdpeek explain tar xzvf archive.tar.gz
+                 cmdpeek explain git commit -am "wip" --no-verify
 
 Shell widget:  add  eval "$(cmdpeek --shell zsh)"  to your rc file, then type a
                command name and press Ctrl-G to build its flags interactively —
@@ -87,6 +145,16 @@ async function main() {
   }
   if (argv[0] === '--version' || argv[0] === '-V') {
     process.stdout.write(VERSION + '\n');
+    return;
+  }
+  // `cmdpeek explain <command line...>` annotates an existing command line.
+  if (argv[0] === 'explain' || argv[0] === '--explain') {
+    const tokens = argv.slice(1);
+    if (tokens.length === 0) {
+      process.stderr.write('Usage: cmdpeek explain <command line...>\n');
+      process.exit(1);
+    }
+    await runExplain(tokens);
     return;
   }
   // `cmdpeek --shell <bash|zsh|fish>` prints a shell keybinding widget.

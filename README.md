@@ -51,11 +51,39 @@ Requires Node.js ≥ 18. **Zero runtime dependencies.**
 ```bash
 cmdpeek <command> [subcommand...]   # interactive builder (default on a TTY)
 cmdpeek git commit                  # explore a subcommand's flags
+cmdpeek explain <command line...>   # annotate an existing command, flag by flag
 cmdpeek <command> --ref             # static parsed reference (no TUI)
 cmdpeek <command> --json            # emit the parsed structure as JSON
 cmdpeek <command> --raw             # print the raw help text cmdpeek parsed
 cmdpeek <command> --man             # build from the man page instead of --help
 ```
+
+### Explain mode — a local, offline `explainshell`
+
+Ever stared at a command you copy‑pasted and wondered what half the flags do?
+`cmdpeek explain` breaks any command line down token by token, using the tool's
+**own `--help`** (or man page). It's like [explainshell](https://explainshell.com),
+but local‑first, zero‑dependency, and not limited to a curated database — it
+works on **every CLI on your `PATH`**, including your own scripts and internal
+tools, with no network round‑trip.
+
+```console
+$ cmdpeek explain tar xzvf archive.tar.gz
+tar  (explained from: tar --help)
+
+  xzvf            4 bundled short options (old-style, no leading dash)
+      -x    extract files from an archive
+      -z    filter the archive through gzip
+      -v    verbosely list files processed
+      -f    use archive file or device ARCHIVE
+  archive.tar.gz  Positional argument / operand.
+```
+
+It understands bundled short flags (`-xzvf`), attached (`-ofile`) and
+space‑separated (`--output file`) values, `--flag=value`, the `--` end‑of‑options
+separator, and drills one level into subcommands (`cmdpeek explain git commit -am "wip"`
+explains against `git commit`'s help). Flags it can't find in the help are
+highlighted so you can spot typos or version‑specific options at a glance.
 
 ### Man‑page fallback (classic Unix tools)
 
@@ -154,8 +182,11 @@ cmdpeek curl --json | jq '.options[] | select(.arg) | .flags'
   exact version and works for *any* command — including tools nobody has written a
   cheatsheet for.
 - **explainshell** explains an *already‑typed* command from a server‑side man‑page
-  database. cmdpeek is local‑first, live, and a **builder** — you pick flags and it
-  assembles the command, rather than just explaining one.
+  database. `cmdpeek explain` does the same thing **offline and locally**, against the
+  binary you actually have — so it covers tools explainshell has never indexed (your
+  own scripts, internal CLIs, freshly installed tools) with no network round‑trip.
+  And beyond explaining, cmdpeek is also a **builder** — pick flags and it assembles
+  the command for you.
 
 It understands the common help dialects out of the box: GNU/BSD getopt, Python
 `argparse`, Rust `clap`, Go `cobra`/`pflag`, Node `commander`/`yargs`, and npm's own
