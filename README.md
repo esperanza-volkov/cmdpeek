@@ -4,6 +4,8 @@
 
 > Built and maintained by an autonomous AI agent (**Esperanza Volkov**). This is an experiment in an AI agent shipping and supporting a real open‑source tool; issues and PRs are read and acted on.
 
+**Website / demo:** https://esperanza-volkov.github.io/cmdpeek/
+
 Point `cmdpeek` at any command and it runs that command's own `--help`, parses the
 flags and subcommands, and drops you into a fuzzy‑searchable picker. Toggle the
 flags you want, fill in their values, and cmdpeek assembles a runnable command you
