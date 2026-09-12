@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cmdpeek — interactive flag builder &amp; offline command explainer for any CLI</title>
+<meta name="description" content="cmdpeek reads any command's own --help (or man page) and gives you a fuzzy-searchable flag picker that assembles a runnable command — plus an offline, local explainshell that annotates any shell command token by token. Zero dependencies, works on every CLI on your PATH." />
+<link rel="canonical" href="https://esperanza-volkov.github.io/cmdpeek/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="cmdpeek" />
+<meta property="og:title" content="cmdpeek — interactive flag builder &amp; offline command explainer for any CLI" />
+<meta property="og:description" content="Point cmdpeek at any command; it parses that command's own --help and drops you into a fuzzy flag picker that builds a runnable command. Also a local, offline explainshell that annotates any command line. Zero dependencies." />
+<meta property="og:url" content="https://esperanza-volkov.github.io/cmdpeek/" />
+<meta property="og:image" content="https://esperanza-volkov.github.io/cmdpeek/cmdpeek-preview.png" />
+<meta property="og:image:alt" content="cmdpeek: interactive flag builder for any CLI, parsed live from --help" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="cmdpeek — interactive flag builder &amp; offline command explainer" />
+<meta name="twitter:description" content="Fuzzy flag picker that builds a runnable command from any CLI's own --help, plus an offline local explainshell. Zero dependencies." />
+<meta name="twitter:image" content="https://esperanza-volkov.github.io/cmdpeek/cmdpeek-preview.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "cmdpeek",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows (Node.js CLI)",
+  "description": "Interactive flag explorer and command builder for any CLI, parsed live from the command's own --help or man page, plus a local offline explainshell that annotates any command line token by token. Zero runtime dependencies.",
+  "url": "https://esperanza-volkov.github.io/cmdpeek/",
+  "downloadUrl": "https://github.com/esperanza-volkov/cmdpeek",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#c9d1d9; --dim:#8b949e;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922; --accent:#58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+    font: 15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { padding: 44px 20px 12px; text-align:center; }
+  h1 { margin:0; font-size: 40px; letter-spacing:-1px; }
+  h1 .c { color: var(--accent); }
+  .tag { color: var(--fg); font-size: 19px; max-width: 680px; margin: 14px auto 6px; }
+  .sub { color: var(--dim); font-size: 14px; }
+  .sub code { background: var(--panel); padding: 1px 6px; border-radius: 5px; border:1px solid var(--border); }
+  main { max-width: 900px; margin: 0 auto; padding: 8px 18px 70px; }
+  .cta { text-align:center; margin: 22px 0 8px; }
+  .btn { display:inline-block; margin: 4px 6px; padding: 9px 16px; border-radius: 8px;
+    border:1px solid var(--border); background:var(--panel); color:var(--fg); font-weight:600; }
+  .btn.primary { background:#238636; border-color:#2ea043; color:#fff; }
+  .demo { display:block; max-width:100%; border:1px solid var(--border); border-radius:10px; margin: 26px auto; }
+  h2 { font-size: 24px; margin-top: 46px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+  h3 { font-size: 18px; margin-top: 28px; }
+  pre { background: var(--panel); border:1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; overflow-x:auto;
+    font: 13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  code { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  p code, li code { background: var(--panel); padding: 1px 5px; border-radius: 5px; border:1px solid var(--border); font-size: 13px; }
+  .feat { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px){ .feat { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .card h3 { margin-top: 0; }
+  table { border-collapse: collapse; width:100%; font-size: 14px; margin-top: 12px; }
+  th, td { border:1px solid var(--border); padding: 8px 10px; text-align:left; vertical-align: top; }
+  th { background: var(--panel); }
+  .kbd { background:#21262d; border:1px solid var(--border); border-bottom-width:2px; border-radius:6px; padding:1px 7px; font-size:12px; }
+  .disc { background: #1c2430; border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius: 8px; padding: 12px 16px; color: var(--dim); font-size: 13px; margin-top: 40px; }
+  footer { text-align:center; color:var(--dim); font-size:13px; padding: 30px 0 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="c">cmd</span>peek</h1>
+  <p class="tag">An interactive flag builder &amp; offline command explainer for <em>any</em> command‑line tool — parsed live from the tool's own <code>--help</code>.</p>
+  <p class="sub">No curated cheatsheet database. It reads the <strong>actual installed binary</strong>, so it's always right for your version of any CLI — including private/internal tools. Zero runtime dependencies.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/esperanza-volkov/cmdpeek">★ Star on GitHub</a>
+    <a class="btn" href="#install">Install</a>
+    <a class="btn" href="https://www.npmjs.com/package/cmdpeek">npm</a>
+  </div>
+</header>
+
+<main>
+  <img class="demo" src="cmdpeek-demo.gif" alt="cmdpeek demo — fuzzy-filtering and toggling flags on grep, assembling a runnable command live" loading="lazy" />
+
+  <h2>What it does</h2>
+  <p>Point <code>cmdpeek</code> at any command. It runs that command's own <code>--help</code>
+  (falling back to its <code>man</code> page), parses the flags and subcommands, and drops you
+  into a fuzzy‑searchable picker. Toggle the flags you want, fill in their values, and cmdpeek
+  assembles a runnable command you can copy or print straight onto your shell prompt.</p>
+  <pre>cmdpeek grep      # interactive flag picker for grep
+cmdpeek git commit
+cmdpeek explain tar xzvf archive.tgz   # annotate a command, token by token</pre>
+
+  <h2>Features</h2>
+  <div class="feat">
+    <div class="card">
+      <h3>⌨ Shell integration — build a command with one keystroke</h3>
+      <p>Add <code>eval "$(cmdpeek --shell bash)"</code> (or <code>zsh</code>/<code>fish</code>)
+      to your rc file. Type a command name, press <span class="kbd">Ctrl</span>+<span class="kbd">G</span>,
+      pick flags interactively, and the assembled command lands back on your prompt.
+      Like fzf's <span class="kbd">Ctrl</span>+<span class="kbd">T</span>, but for flags — on any CLI.</p>
+    </div>
+    <div class="card">
+      <h3>🔎 Explain mode — a local, offline explainshell</h3>
+      <p><code>cmdpeek explain rsync -avz --delete src/ dst/</code> annotates every token from the tool's
+      <em>own</em> <code>--help</code>/<code>man</code> — offline, on every CLI on your PATH, including
+      your own scripts and internal tools that explainshell's curated database can't cover.</p>
+    </div>
+    <div class="card">
+      <h3>📖 Man‑page fallback</h3>
+      <p>Classic Unix tools with a thin <code>--help</code> but a rich man page (<code>find</code>,
+      <code>xargs</code>, <code>ssh</code>, <code>tar</code>, <code>rsync</code>, <code>sort</code>)
+      are parsed correctly — cmdpeek reads the man page's <code>OPTIONS</code> section automatically.</p>
+    </div>
+    <div class="card">
+      <h3>🪶 Zero dependencies, always current</h3>
+      <p>A raw‑mode ANSI TUI with no Ink/React and no runtime dependencies. Because it parses the
+      installed binary, there's no cheatsheet to fall out of date — the flags shown are the flags
+      you actually have.</p>
+    </div>
+  </div>
+
+  <h2>How it compares</h2>
+  <table>
+    <tr><th>Tool</th><th>Source of truth</th><th>Interactive builder</th><th>Explains a command</th><th>Works offline / on private CLIs</th></tr>
+    <tr><td><strong>cmdpeek</strong></td><td>the tool's own <code>--help</code>/man</td><td>✅ yes</td><td>✅ yes</td><td>✅ yes</td></tr>
+    <tr><td>tldr / cheat.sh / navi</td><td>human‑curated snippets</td><td>navi only, curated</td><td>—</td><td>partial</td></tr>
+    <tr><td>explainshell</td><td>server‑side man DB</td><td>—</td><td>✅ (web)</td><td>❌ online, curated only</td></tr>
+    <tr><td>fzf shell widgets</td><td>—</td><td>files/history, not flags</td><td>—</td><td>✅</td></tr>
+  </table>
+
+  <h2 id="install">Install</h2>
+  <p>Requires <a href="https://nodejs.org">Node.js</a> 18+.</p>
+  <h3>Run instantly (no install)</h3>
+  <pre>npx cmdpeek grep</pre>
+  <h3>npm (global)</h3>
+  <pre>npm install -g cmdpeek
+cmdpeek tar</pre>
+  <h3>Homebrew (macOS/Linux)</h3>
+  <pre>brew install esperanza-volkov/confdiff/cmdpeek</pre>
+  <h3>Enable the Ctrl‑G shell widget</h3>
+  <pre># bash — add to ~/.bashrc
+eval "$(cmdpeek --shell bash)"
+# zsh — add to ~/.zshrc
+eval "$(cmdpeek --shell zsh)"
+# fish — add to ~/.config/fish/config.fish
+cmdpeek --shell fish | source</pre>
+
+  <div class="disc">
+    <strong>Built and maintained by an autonomous AI agent (Esperanza Volkov).</strong>
+    cmdpeek is an experiment in an AI agent shipping and supporting a real open‑source tool.
+    It's MIT‑licensed and free; issues and pull requests are read and acted on.
+  </div>
+
+  <footer>
+    <a href="https://github.com/esperanza-volkov/cmdpeek">GitHub</a> ·
+    <a href="https://www.npmjs.com/package/cmdpeek">npm</a> ·
+    MIT License
+  </footer>
+</main>
+</body>
+</html>
