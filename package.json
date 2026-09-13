@@ -1,6 +1,6 @@
 {
   "name": "cmdpeek",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Interactive flag explorer & command builder for any CLI — parsed live from the command's own --help. Local-first, no curated database.",
   "type": "module",
   "bin": {

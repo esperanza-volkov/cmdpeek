@@ -69,9 +69,42 @@ describe('annotateArgs', () => {
         { flags: ['-f'], arg: '<file>', description: 'archive' },
       ],
     });
-    const [a] = annotateArgs(['xzvf'], parsed);
+    const [a] = annotateArgs(['xzvf'], parsed, 'tar');
     expect(a.kind).toBe('short-cluster');
     expect(a.parts).toHaveLength(4);
+  });
+
+  it('does NOT treat a bare operand as an old-style cluster for non-listed tools', () => {
+    // grep's search pattern `foo` — f, o, o are all valid grep short flags,
+    // but grep is not an old-style-cluster tool, so `foo` must stay positional.
+    const parsed = P({
+      options: [
+        { flags: ['-f'], arg: '<file>', description: 'obtain patterns from file' },
+        { flags: ['-o'], arg: null, description: 'only matching' },
+        { flags: ['-r'], arg: null, description: 'recursive' },
+        { flags: ['-n'], arg: null, description: 'line number' },
+      ],
+    });
+    const anns = annotateArgs(['-rn', 'foo', '.'], parsed, 'grep');
+    expect(anns[0].kind).toBe('short-cluster'); // -rn
+    const foo = anns.find((a) => a.token === 'foo')!;
+    expect(foo.kind).toBe('argument');
+  });
+
+  it('does not treat a post-flag bare token as a cluster even for old-style tools', () => {
+    // Once a dash-flag has appeared, tar is being used in modern syntax; a
+    // trailing operand whose letters are valid flags must remain positional.
+    const parsed = P({
+      options: [
+        { flags: ['-x'], arg: null, description: 'extract' },
+        { flags: ['-f'], arg: '<file>', description: 'archive' },
+        { flags: ['-v'], arg: null, description: 'verbose' },
+      ],
+    });
+    // `vf` after `-x` would be a valid cluster by letters, but must be positional.
+    const anns = annotateArgs(['-x', 'vf'], parsed, 'tar');
+    const vf = anns.find((a) => a.token === 'vf')!;
+    expect(vf.kind).toBe('argument');
   });
 
   it('does not mistake a filename for a bare cluster', () => {

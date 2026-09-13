@@ -56,13 +56,33 @@ function indexOptions(opts: CmdOption[]) {
 const optTakesArg = (o: CmdOption | undefined) => !!(o && o.arg);
 
 /**
+ * Classic tools that accept an old-style bundled first argument with NO leading
+ * dash (e.g. `tar xzvf`, `ps aux`, `ar rcs`). Bare-cluster detection is limited
+ * to these so ordinary operands are never misread as bundled flags.
+ */
+const OLD_STYLE_CLUSTER_COMMANDS = new Set(['tar', 'ps', 'ar']);
+
+/**
  * Pure, testable core: annotate the argument tokens that follow the resolved
  * command (+ optional subcommand), using the parsed help of that command.
  */
-export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
+export function annotateArgs(
+  args: string[],
+  parsed: ParsedHelp,
+  command?: string,
+): Annotation[] {
   const { long, short } = indexOptions(parsed.options);
   const out: Annotation[] = [];
   let optionsEnded = false;
+  // Old-style bundled syntax (tar `xzvf`, ps `aux`) is exclusive to a small set
+  // of classic tools and only ever appears as the very first argument. We track
+  // whether a dash-flag or any prior positional has appeared so a bare operand
+  // that merely happens to consist of valid short-flag letters (e.g. grep's
+  // `foo`) is never mislabeled as a cluster.
+  const base = command ? command.split('/').pop() : undefined;
+  const oldStyleTool = base !== undefined && OLD_STYLE_CLUSTER_COMMANDS.has(base);
+  let sawDashOption = false;
+  let sawPositional = false;
 
   for (let i = 0; i < args.length; i++) {
     const tok = args[i];
@@ -79,6 +99,7 @@ export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
 
     // --- long option: --flag or --flag=value ---------------------------
     if (!optionsEnded && tok.startsWith('--') && tok.length > 2) {
+      sawDashOption = true;
       const eq = tok.indexOf('=');
       const name = eq === -1 ? tok : tok.slice(0, eq);
       const inlineVal = eq === -1 ? null : tok.slice(eq + 1);
@@ -108,6 +129,7 @@ export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
 
     // --- short option(s): -x, -xzf, -o value, -ofile -------------------
     if (!optionsEnded && tok.startsWith('-') && tok.length > 1 && tok !== '--') {
+      sawDashOption = true;
       const chars = tok.slice(1);
       const parts: ClusterPart[] = [];
       let consumedValueFrom = -1; // index within chars where an arg-taking flag grabbed the rest
@@ -166,6 +188,7 @@ export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
     // or a positional argument/operand.
     const sub = parsed.subcommands.find((s) => s.name === tok);
     if (!optionsEnded && sub) {
+      sawPositional = true;
       out.push({
         token: tok,
         kind: 'subcommand',
@@ -174,10 +197,17 @@ export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
       continue;
     }
 
-    // Bare clustered short options: only if EVERY character is a known short
-    // flag (so `xzvf` for tar matches, but a filename like `notes.txt` does not).
+    // Bare clustered short options (old-style, e.g. tar `xzvf` / ps `aux`).
+    // These are restricted to a curated set of classic tools AND to the very
+    // first argument (before any dash-flag or positional). This prevents an
+    // ordinary operand whose letters happen to be valid short flags — such as
+    // grep's search pattern `foo` (f, o, o are all grep flags) — from being
+    // mislabeled as a bundle.
     if (
       !optionsEnded &&
+      oldStyleTool &&
+      !sawDashOption &&
+      !sawPositional &&
       tok.length >= 1 &&
       short.size > 0 &&
       /^[A-Za-z0-9]+$/.test(tok) &&
@@ -196,6 +226,7 @@ export function annotateArgs(args: string[], parsed: ParsedHelp): Annotation[] {
       continue;
     }
 
+    sawPositional = true;
     out.push({
       token: tok,
       kind: 'argument',
@@ -237,7 +268,7 @@ export async function explainCommand(tokens: string[]): Promise<ExplainResult> {
       return {
         command: [cmd, maybeSub],
         invocation: subHelp.invocation,
-        annotations: annotateArgs(tokens.slice(2), subParsed),
+        annotations: annotateArgs(tokens.slice(2), subParsed, maybeSub),
       };
     } catch {
       // Subcommand help unavailable — fall back to top-level parse.
@@ -247,6 +278,6 @@ export async function explainCommand(tokens: string[]): Promise<ExplainResult> {
   return {
     command: [cmd],
     invocation: top.invocation,
-    annotations: annotateArgs(tokens.slice(1), topParsed),
+    annotations: annotateArgs(tokens.slice(1), topParsed, cmd),
   };
 }
