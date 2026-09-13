@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { getHelp, getMan } from './help.js';
 import { parseHelp, type ParsedHelp } from './parser.js';
 import { runTui } from './tui.js';
@@ -12,7 +13,14 @@ const cyan = (s: string) => c('36', s);
 const green = (s: string) => c('32', s);
 const dim = (s: string) => c('2', s);
 
-const VERSION = '0.6.0';
+// Read the version from package.json so it can never drift from the release.
+const VERSION: string = (() => {
+  try {
+    return createRequire(import.meta.url)('../package.json').version as string;
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 function printReference(cmd: string, invocation: string, p: ParsedHelp) {
   const out: string[] = [];
